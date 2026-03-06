@@ -1,6 +1,6 @@
 import { Link, useLocation } from "react-router-dom";
-import { Code2, Terminal, BookOpen, Home, Menu, X } from "lucide-react";
-import { useState } from "react";
+import { Code2, Terminal, BookOpen, Home, Menu, X, Sun, Moon } from "lucide-react";
+import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 
 const navItems = [
@@ -13,6 +13,23 @@ const navItems = [
 const Navbar = () => {
   const location = useLocation();
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [dark, setDark] = useState(() => {
+    if (typeof window !== "undefined") {
+      return document.documentElement.classList.contains("dark") ||
+        localStorage.getItem("theme") === "dark";
+    }
+    return false;
+  });
+
+  useEffect(() => {
+    if (dark) {
+      document.documentElement.classList.add("dark");
+      localStorage.setItem("theme", "dark");
+    } else {
+      document.documentElement.classList.remove("dark");
+      localStorage.setItem("theme", "light");
+    }
+  }, [dark]);
 
   return (
     <nav className="sticky top-0 z-50 border-b bg-card/80 backdrop-blur-md">
@@ -33,9 +50,7 @@ const Navbar = () => {
                 key={item.to}
                 to={item.to}
                 className={`relative flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-medium transition-colors ${
-                  active
-                    ? "text-primary"
-                    : "text-muted-foreground hover:text-foreground"
+                  active ? "text-primary" : "text-muted-foreground hover:text-foreground"
                 }`}
               >
                 <item.icon className="h-3.5 w-3.5" />
@@ -49,15 +64,33 @@ const Navbar = () => {
               </Link>
             );
           })}
+
+          {/* Theme toggle */}
+          <button
+            onClick={() => setDark(!dark)}
+            className="ml-2 flex h-9 w-9 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+            aria-label="Toggle theme"
+          >
+            {dark ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
+          </button>
         </div>
 
-        {/* Mobile toggle */}
-        <button
-          onClick={() => setMobileOpen(!mobileOpen)}
-          className="flex h-9 w-9 items-center justify-center rounded-md text-muted-foreground hover:text-foreground md:hidden"
-        >
-          {mobileOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
-        </button>
+        {/* Mobile buttons */}
+        <div className="flex items-center gap-1 md:hidden">
+          <button
+            onClick={() => setDark(!dark)}
+            className="flex h-9 w-9 items-center justify-center rounded-md text-muted-foreground hover:text-foreground"
+            aria-label="Toggle theme"
+          >
+            {dark ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
+          </button>
+          <button
+            onClick={() => setMobileOpen(!mobileOpen)}
+            className="flex h-9 w-9 items-center justify-center rounded-md text-muted-foreground hover:text-foreground"
+          >
+            {mobileOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
+          </button>
+        </div>
       </div>
 
       {/* Mobile menu */}
@@ -78,9 +111,7 @@ const Navbar = () => {
                     to={item.to}
                     onClick={() => setMobileOpen(false)}
                     className={`flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium transition-colors ${
-                      active
-                        ? "bg-primary/10 text-primary"
-                        : "text-muted-foreground hover:bg-muted hover:text-foreground"
+                      active ? "bg-primary/10 text-primary" : "text-muted-foreground hover:bg-muted hover:text-foreground"
                     }`}
                   >
                     <item.icon className="h-4 w-4" />
