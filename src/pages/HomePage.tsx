@@ -1,38 +1,52 @@
 import { Link } from "react-router-dom";
 import { motion } from "framer-motion";
-import { ArrowRight, Code2, Brain, Timer, Lightbulb, Terminal, MessageSquare } from "lucide-react";
+import {
+  ArrowRight,
+  Search,
+  BarChart3,
+  Lightbulb,
+  Terminal,
+  MessageSquare,
+  Code2,
+} from "lucide-react";
 import FeatureCard from "@/components/FeatureCard";
 
 const features = [
   {
-    icon: <Code2 className="h-5 w-5" />,
-    title: "Smart Code Input",
-    description: "Paste Java code with syntax-aware editor featuring line numbers and tab support.",
+    icon: <Search className="h-6 w-6" />,
+    title: "Static Code Analysis",
+    description:
+      "Understand your Java program's logic with step-by-step explanations of each operation.",
   },
   {
-    icon: <Brain className="h-5 w-5" />,
-    title: "Static Analysis",
-    description: "Step-by-step explanation of program logic, control flow, and data structures.",
+    icon: <BarChart3 className="h-6 w-6" />,
+    title: "Complexity Estimation",
+    description:
+      "Get time and space complexity analysis for your code to understand performance.",
   },
   {
-    icon: <Timer className="h-5 w-5" />,
-    title: "Complexity Analysis",
-    description: "Automatic time and space complexity estimation with Big-O notation.",
+    icon: <Lightbulb className="h-6 w-6" />,
+    title: "Smart Suggestions",
+    description:
+      "Receive optimization recommendations and alternative approaches based on complexity.",
   },
   {
-    icon: <Lightbulb className="h-5 w-5" />,
-    title: "Better Approaches",
-    description: "Suggestions for optimized algorithms based on detected complexity patterns.",
+    icon: <Terminal className="h-6 w-6" />,
+    title: "Compiler & Debugger",
+    description:
+      "Compile Java code online with error highlighting and debug messages.",
   },
   {
-    icon: <Terminal className="h-5 w-5" />,
-    title: "Online Compiler",
-    description: "Compile and run Java code directly in the browser with error highlighting.",
-  },
-  {
-    icon: <MessageSquare className="h-5 w-5" />,
+    icon: <MessageSquare className="h-6 w-6" />,
     title: "AI Assistant",
-    description: "Chat-based AI assistant to explain concepts and help debug your code.",
+    description:
+      "Chat with an AI that explains code, answers questions, and helps debug issues.",
+  },
+  {
+    icon: <Code2 className="h-6 w-6" />,
+    title: "Code Editor",
+    description:
+      "Full-featured code editor with syntax highlighting and line numbers for Java.",
   },
 ];
 
@@ -42,86 +56,61 @@ const HomePage = () => {
       {/* Hero */}
       <section className="relative overflow-hidden border-b bg-card">
         <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,hsl(220_70%_45%/0.08),transparent_60%)]" />
-        <div className="container relative py-20 md:py-28">
+        <div className="container relative py-24 md:py-32">
           <motion.div
-            initial={{ opacity: 0, y: 20 }}
+            initial={{ opacity: 0, y: 24 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.5 }}
-            className="mx-auto max-w-2xl text-center"
+            transition={{ duration: 0.6 }}
+            className="mx-auto max-w-3xl text-center"
           >
-            <div className="mb-4 inline-flex items-center gap-2 rounded-full border bg-background px-3 py-1 text-xs font-medium text-muted-foreground">
-              <Code2 className="h-3 w-3" />
-              AI-Powered Java Analysis
+            <div className="mb-6 inline-flex items-center gap-2 rounded-full border bg-background px-4 py-1.5 text-sm font-medium text-muted-foreground shadow-card">
+              <Search className="h-3.5 w-3.5 text-primary" />
+              AI-Powered Code Analysis
             </div>
-            <h1 className="mb-4 text-4xl font-bold tracking-tight md:text-5xl">
+
+            <h1 className="mb-6 text-4xl font-bold tracking-tight sm:text-5xl md:text-6xl">
               Understand Java Code{" "}
-              <span className="bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">
-                Intuitively
+              <span className="bg-gradient-to-r from-accent to-[hsl(152_60%_50%)] bg-clip-text text-transparent">
+                Like Never Before
               </span>
             </h1>
-            <p className="mb-8 text-lg text-muted-foreground">
-              CodeSense helps students analyze, compile, and understand Java programs through
-              AI-assisted explanations and static analysis.
+
+            <p className="mx-auto mb-10 max-w-2xl text-lg text-muted-foreground md:text-xl">
+              CodeSense helps students analyze, compile, and understand Java
+              programs using AI-assisted explanations and static analysis.
             </p>
-            <div className="flex flex-wrap items-center justify-center gap-3">
+
+            <div className="flex flex-wrap items-center justify-center gap-4">
               <Link
                 to="/analyzer"
-                className="inline-flex items-center gap-2 rounded-lg bg-primary px-5 py-2.5 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
+                className="inline-flex items-center gap-2 rounded-lg bg-primary px-6 py-3 text-sm font-semibold text-primary-foreground shadow-elevated transition-all hover:bg-primary/90 hover:shadow-lg"
               >
                 Start Analyzing
                 <ArrowRight className="h-4 w-4" />
               </Link>
               <Link
-                to="/compiler"
-                className="inline-flex items-center gap-2 rounded-lg border bg-background px-5 py-2.5 text-sm font-medium text-foreground transition-colors hover:bg-muted"
+                to="/about"
+                className="inline-flex items-center gap-2 rounded-lg border bg-background px-6 py-3 text-sm font-semibold text-foreground shadow-card transition-all hover:bg-muted"
               >
-                <Terminal className="h-4 w-4" />
-                Open Compiler
+                Learn More
               </Link>
-            </div>
-          </motion.div>
-
-          {/* Code preview decoration */}
-          <motion.div
-            initial={{ opacity: 0, y: 30 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.3, duration: 0.6 }}
-            className="mx-auto mt-12 max-w-xl"
-          >
-            <div className="overflow-hidden rounded-lg border border-code-line shadow-elevated">
-              <div className="flex items-center gap-1.5 border-b border-code-line bg-code-bg px-4 py-2">
-                <div className="h-2.5 w-2.5 rounded-full bg-destructive/60" />
-                <div className="h-2.5 w-2.5 rounded-full bg-warning/60" />
-                <div className="h-2.5 w-2.5 rounded-full bg-success/60" />
-                <span className="ml-3 font-mono text-xs text-code-comment">HelloWorld.java</span>
-              </div>
-              <pre className="code-editor p-4 text-sm leading-relaxed">
-                <code>
-                  <span className="text-code-keyword">public class</span>{" "}
-                  <span className="text-code-accent">HelloWorld</span> {"{\n"}
-                  {"    "}
-                  <span className="text-code-keyword">public static void</span>{" "}
-                  <span className="text-code-accent">main</span>
-                  {"(String[] args) {\n"}
-                  {"        "}System.out.println(
-                  <span className="text-code-string">"Hello, CodeSense!"</span>
-                  {");\n"}
-                  {"    }\n"}
-                  {"}"}
-                </code>
-              </pre>
             </div>
           </motion.div>
         </div>
       </section>
 
       {/* Features */}
-      <section className="container py-16 md:py-20">
-        <div className="mb-10 text-center">
-          <h2 className="mb-2 text-2xl font-bold">Core Features</h2>
-          <p className="text-muted-foreground">Everything you need to understand Java programs better.</p>
+      <section className="container py-20 md:py-28">
+        <div className="mb-14 text-center">
+          <h2 className="mb-3 text-3xl font-bold tracking-tight md:text-4xl">
+            Core Features
+          </h2>
+          <p className="mx-auto max-w-xl text-muted-foreground md:text-lg">
+            Everything you need to understand, analyze, and debug your Java
+            programs.
+          </p>
         </div>
-        <div className="mx-auto grid max-w-4xl gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        <div className="mx-auto grid max-w-5xl gap-6 sm:grid-cols-2 lg:grid-cols-3">
           {features.map((f, i) => (
             <FeatureCard key={f.title} {...f} delay={i * 0.08} />
           ))}
@@ -130,14 +119,16 @@ const HomePage = () => {
 
       {/* CTA */}
       <section className="border-t bg-card">
-        <div className="container py-12 text-center">
-          <h2 className="mb-2 text-xl font-bold">Ready to analyze your code?</h2>
-          <p className="mb-6 text-sm text-muted-foreground">
+        <div className="container py-16 text-center">
+          <h2 className="mb-3 text-2xl font-bold md:text-3xl">
+            Ready to analyze your code?
+          </h2>
+          <p className="mb-8 text-muted-foreground">
             Paste your Java code and get instant insights.
           </p>
           <Link
             to="/analyzer"
-            className="inline-flex items-center gap-2 rounded-lg bg-primary px-5 py-2.5 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
+            className="inline-flex items-center gap-2 rounded-lg bg-primary px-6 py-3 text-sm font-semibold text-primary-foreground shadow-elevated transition-all hover:bg-primary/90"
           >
             Get Started <ArrowRight className="h-4 w-4" />
           </Link>
