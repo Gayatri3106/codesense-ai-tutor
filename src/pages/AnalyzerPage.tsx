@@ -73,44 +73,70 @@ const AnalyzerPage = () => {
       if (hasArray) summary += ". Array/list data structures are used for storing data";
       summary += ".";
 
-      // Steps
+      // Steps — detailed line-by-line style
       const steps: string[] = [];
-      if (code.includes("main(")) steps.push("Program execution begins in the main() method.");
-      if (hasArray) steps.push("Variables and data structures (arrays/lists) are initialized.");
-      if (hasLoop) steps.push("Loop iterates through elements for processing.");
-      if (hasNestedLoop) steps.push("Inner loop performs comparisons or nested operations.");
-      if (code.includes("if")) steps.push("Conditional statements evaluate expressions and branch logic.");
-      if (hasRecursion) steps.push("Recursive calls are made until the base case is reached.");
-      if (code.includes("System.out")) steps.push("Results are printed to the console via System.out.");
-      if (steps.length === 0) steps.push("Code structure analyzed. Basic operations are performed sequentially.");
+      if (code.includes("main(")) steps.push("Program execution begins in the main() method — this is the entry point of any Java application. The JVM calls this method first when the program starts.");
+      
+      // Detect variable declarations
+      const varDecls = code.match(/(int|double|float|long|String|char|boolean)\s+\w+/g);
+      if (varDecls && varDecls.length > 0) {
+        steps.push(`Variables are declared and initialized (${varDecls.slice(0, 3).join(", ")}${varDecls.length > 3 ? ", ..." : ""}). Memory is allocated on the stack for primitive types and on the heap for objects.`);
+      }
+      if (hasArray) steps.push("An array or collection data structure is created to store multiple elements. Arrays provide O(1) random access by index but have a fixed size after creation.");
+      
+      // Detect method definitions
+      const methods = code.match(/\b(public|private|protected|static)\s+\w+\s+(\w+)\s*\(/g);
+      if (methods && methods.length > 1) {
+        steps.push(`Multiple methods are defined (${methods.length} found). The program is modularized into separate functions, each responsible for a specific task.`);
+      }
 
-      // Time complexity
+      if (hasLoop && !hasNestedLoop) steps.push("A loop iterates through the elements sequentially. Each element is visited exactly once, performing a constant amount of work per iteration — this results in linear O(n) behavior.");
+      if (hasNestedLoop) {
+        steps.push("An outer loop iterates through each element of the dataset. For each iteration of the outer loop, the inner loop runs through remaining elements — this creates a quadratic relationship where total operations ≈ n × n.");
+        if (code.includes("swap") || code.includes("temp")) {
+          steps.push("Inside the inner loop, elements are compared and swapped if they are out of order. A temporary variable holds one value during the exchange to prevent data loss.");
+        }
+      }
+      if (code.includes("if")) steps.push("Conditional statements (if/else) evaluate boolean expressions to determine which branch of code executes. This enables decision-making logic within the program.");
+      if (code.includes("switch")) steps.push("A switch statement is used to select one of many code blocks to execute based on the value of a variable, providing cleaner multi-branch logic than chained if-else statements.");
+      if (hasRecursion) steps.push("The method calls itself recursively, breaking the problem into smaller sub-problems. Each recursive call adds a new frame to the call stack until a base case is reached, then results are returned back up the chain.");
+      if (code.includes("return")) steps.push("A return statement sends a value back to the calling method and terminates the current method execution.");
+      if (code.includes("System.out")) steps.push("Results are printed to the console using System.out. The print/println methods convert values to strings and write them to the standard output stream.");
+      if (steps.length === 0) steps.push("The code performs sequential operations without loops or recursion. Each statement executes exactly once from top to bottom.");
+
+      // Time complexity — detailed explanations
       let best = "O(1)", avg = "O(n)", worst = "O(n²)";
-      let bestExpl = "Occurs when the required element is found immediately or no processing is needed.";
-      let avgExpl = "Occurs when the algorithm scans about half of the data on average.";
-      let worstExpl = "Occurs when the algorithm must process the entire dataset with maximum comparisons.";
+      let bestExpl = "Occurs when the required element is found immediately or no processing is needed. The algorithm performs a constant number of operations regardless of input — for example, checking only the first element.";
+      let avgExpl = "On average, the algorithm processes roughly half the input before completing. With n elements, it performs approximately n/2 comparisons, which simplifies to O(n) in Big-O notation since constants are dropped.";
+      let worstExpl = "Every element must be compared against every other element. With n elements, this produces n × (n-1)/2 comparisons, which grows quadratically — doubling the input size quadruples the execution time.";
 
       if (hasNestedLoop) {
         best = "O(n)"; avg = "O(n²)"; worst = "O(n²)";
-        bestExpl = "Occurs when the data is already sorted and minimal swaps are needed.";
-        avgExpl = "Occurs when elements are in random order requiring quadratic comparisons.";
-        worstExpl = "Occurs when the data is in reverse order, requiring maximum swaps.";
+        bestExpl = "Best case O(n) occurs when the data is already in the desired order. The outer loop still runs n times, but the inner loop detects no swaps are needed and can terminate early (with an optimization flag). Only n comparisons are made.";
+        avgExpl = "On average, elements are in random order. The outer loop runs n times and the inner loop runs ~n/2 times per iteration, resulting in approximately n²/2 total comparisons. In Big-O notation, constants are dropped, giving O(n²). For 1,000 elements, this means ~500,000 operations.";
+        worstExpl = "Worst case O(n²) occurs when data is in reverse sorted order. Every possible comparison and swap must be performed — the outer loop runs n-1 times and the inner loop runs (n-1), (n-2), ... 1 times respectively, totaling n(n-1)/2 operations. For 10,000 elements, this means ~50 million operations.";
       } else if (hasRecursion) {
         best = "O(n)"; avg = "O(n log n)"; worst = "O(2ⁿ)";
-        bestExpl = "Occurs with optimal recursive partitioning.";
-        avgExpl = "Balanced recursive calls result in logarithmic depth.";
-        worstExpl = "Unbalanced recursion leads to exponential branching.";
+        bestExpl = "Best case O(n) occurs when each recursive call processes the data optimally — for example, in a divide-and-conquer algorithm where the pivot always splits the array in half, requiring only n operations at each level with log(n) levels.";
+        avgExpl = "Average case O(n log n) occurs when recursive calls divide the problem roughly in half each time. The work at each recursion level is O(n), and there are log₂(n) levels. For 1,000 elements: 1000 × 10 ≈ 10,000 operations — much better than O(n²).";
+        worstExpl = "Worst case O(2ⁿ) occurs with unoptimized recursion where each call branches into two sub-calls without memoization. This creates an exponential tree — for n=30, this means over 1 billion operations. This is why memoization or dynamic programming is critical.";
       } else if (!hasLoop) {
         best = "O(1)"; avg = "O(1)"; worst = "O(1)";
-        bestExpl = "Constant time — no loops or recursion detected.";
-        avgExpl = "Constant time — fixed number of operations.";
-        worstExpl = "Constant time — independent of input size.";
+        bestExpl = "Constant time O(1) — no loops or recursion detected. The algorithm performs a fixed number of operations (assignments, arithmetic, comparisons) regardless of input size. Whether the input has 10 or 10 million elements, the execution time remains the same.";
+        avgExpl = "Constant time O(1) — every execution path performs the same fixed number of operations. There are no data-dependent iterations, so performance is completely predictable and independent of input size.";
+        worstExpl = "Constant time O(1) — even in the worst case, the number of operations is bounded by a constant. This is the most efficient time complexity possible and is ideal for lookup operations like accessing an array by index or a HashMap by key.";
       }
 
-      // Space complexity
-      let spaceVal = "O(1)", spaceExpl = "Only primitive variables are used; no additional memory scales with input.";
-      if (hasArray) { spaceVal = "O(n)"; spaceExpl = "Additional memory is used to store the array or collection data structure."; }
-      if (hasRecursion) { spaceVal = "O(n)"; spaceExpl = "The recursion stack grows proportionally to the depth of recursive calls."; }
+      // Space complexity — detailed
+      let spaceVal = "O(1)", spaceExpl = "Constant space O(1) — only a fixed number of primitive variables (int, boolean, etc.) are used regardless of input size. No additional data structures grow with the input. The memory footprint remains the same whether processing 10 or 10 million elements. This is also called 'in-place' processing.";
+      if (hasArray) { 
+        spaceVal = "O(n)"; 
+        spaceExpl = "Linear space O(n) — an array or collection is used that stores n elements, where n is proportional to the input size. Each element occupies memory (4 bytes for int, 8 bytes for double), so total memory usage grows linearly. For example, an int array of 1,000 elements uses ~4KB of heap memory. If additional temporary arrays are created, the space multiplier increases but remains O(n)."; 
+      }
+      if (hasRecursion) { 
+        spaceVal = "O(n)"; 
+        spaceExpl = "Linear space O(n) — each recursive call adds a new stack frame to the call stack, consuming memory for local variables, parameters, and the return address (~50-100 bytes per frame). With a recursion depth of n, this means O(n) stack space. Deep recursion (n > ~10,000) risks a StackOverflowError in Java. Tail-call optimization is NOT supported in Java, so iterative alternatives should be considered for large inputs."; 
+      }
 
       // Suggestions
       const suggestions: string[] = [];
