@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { motion } from "framer-motion";
-import { Play, Loader2, Trash2, Terminal, AlertTriangle, CheckCircle, XCircle } from "lucide-react";
+import { Play, Loader2, Trash2, Terminal, AlertTriangle, CheckCircle, XCircle, Code2 } from "lucide-react";
 import CodeEditor from "@/components/CodeEditor";
 
 const defaultCode = `public class Main {
@@ -48,7 +48,6 @@ const CompilerPage = () => {
         success = false;
       }
 
-      // Check for missing semicolons
       const lines = code.split("\n");
       lines.forEach((line, i) => {
         const trimmed = line.trim();
@@ -96,57 +95,87 @@ const CompilerPage = () => {
 
   return (
     <div className="min-h-screen">
-      <div className="container py-8">
-        <div className="mb-6">
-          <h1 className="text-2xl font-bold md:text-3xl">Online Java Compiler</h1>
-          <p className="mt-1 text-sm text-muted-foreground md:text-base">
+      <div className="container px-4 py-8 md:py-12">
+        {/* Header */}
+        <motion.div
+          initial={{ opacity: 0, y: 16 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.4 }}
+          className="mb-8"
+        >
+          <div className="mb-3 inline-flex items-center gap-2 rounded-full border bg-card px-4 py-1.5 text-xs font-medium text-muted-foreground shadow-card">
+            <Terminal className="h-3.5 w-3.5 text-accent" />
+            Online IDE
+          </div>
+          <h1 className="text-2xl font-bold tracking-tight md:text-3xl lg:text-4xl">Online Java Compiler</h1>
+          <p className="mt-2 max-w-2xl text-sm text-muted-foreground md:text-base">
             Write, compile, and run Java code directly in your browser with error highlighting.
           </p>
-        </div>
+        </motion.div>
 
         <div className="grid gap-6 lg:grid-cols-2">
           {/* Editor */}
-          <div className="space-y-4">
+          <motion.div
+            initial={{ opacity: 0, x: -16 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ duration: 0.4, delay: 0.1 }}
+            className="space-y-4"
+          >
             <div className="flex flex-wrap items-center gap-2">
               <button
                 onClick={compile}
                 disabled={!code.trim() || compiling}
-                className="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90 disabled:opacity-50"
+                className="group inline-flex items-center gap-2 rounded-xl bg-primary px-5 py-2.5 text-sm font-semibold text-primary-foreground shadow-elevated transition-all duration-200 hover:bg-primary/90 hover:-translate-y-0.5 disabled:opacity-50 disabled:hover:translate-y-0"
               >
                 {compiling ? <Loader2 className="h-4 w-4 animate-spin" /> : <Play className="h-4 w-4" />}
                 {compiling ? "Compiling..." : "Run Code"}
               </button>
               <button
                 onClick={() => setResult(null)}
-                className="inline-flex items-center gap-2 rounded-lg border px-4 py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                className="inline-flex items-center gap-2 rounded-xl border px-4 py-2.5 text-sm font-medium text-muted-foreground transition-all duration-200 hover:bg-muted hover:text-foreground hover:-translate-y-0.5"
               >
                 <Trash2 className="h-4 w-4" /> Clear Console
               </button>
             </div>
-            <CodeEditor value={code} onChange={setCode} placeholder="Write your Java code..." minHeight="450px" />
-          </div>
+            <div className="overflow-hidden rounded-2xl shadow-elevated">
+              <CodeEditor value={code} onChange={setCode} placeholder="Write your Java code..." minHeight="500px" />
+            </div>
+          </motion.div>
 
           {/* Console Output */}
-          <div className="space-y-4">
-            <div className="overflow-hidden rounded-xl border border-code-line shadow-card">
-              <div className="flex items-center gap-2 border-b border-code-line bg-code-bg px-4 py-2.5">
-                <Terminal className="h-4 w-4 text-code-accent" />
+          <motion.div
+            initial={{ opacity: 0, x: 16 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ duration: 0.4, delay: 0.2 }}
+            className="space-y-4"
+          >
+            <div className="overflow-hidden rounded-2xl border border-code-line shadow-elevated">
+              <div className="flex items-center gap-2 border-b border-code-line bg-code-bg px-5 py-3">
+                <div className="flex items-center gap-1.5">
+                  <div className="h-2.5 w-2.5 rounded-full bg-destructive/60" />
+                  <div className="h-2.5 w-2.5 rounded-full bg-warning/60" />
+                  <div className="h-2.5 w-2.5 rounded-full bg-success/60" />
+                </div>
+                <Terminal className="ml-2 h-4 w-4 text-code-accent" />
                 <span className="text-sm font-semibold text-code-fg">Console Output</span>
                 {result && (
-                  <span className={`ml-auto inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium ${
+                  <span className={`ml-auto inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-[11px] font-semibold ${
                     result.success ? "bg-success/10 text-success" : "bg-destructive/10 text-destructive"
                   }`}>
                     {result.success ? <><CheckCircle className="h-3 w-3" /> Success</> : <><XCircle className="h-3 w-3" /> Failed</>}
                   </span>
                 )}
               </div>
-              <div className="code-editor min-h-[400px] p-4">
+              <div className="code-editor min-h-[460px] p-5">
                 {result ? (
                   <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
-                    <div className="space-y-0.5 font-mono text-sm">
+                    <div className="space-y-1 font-mono text-sm">
                       {result.output.map((line, i) => (
-                        <div
+                        <motion.div
                           key={i}
+                          initial={{ opacity: 0, x: -4 }}
+                          animate={{ opacity: 1, x: 0 }}
+                          transition={{ delay: i * 0.03 }}
                           className={
                             line.startsWith("$") ? "text-code-accent font-semibold" :
                             line.includes("error") ? "text-destructive" :
@@ -155,15 +184,18 @@ const CompilerPage = () => {
                           }
                         >
                           {line || "\u00A0"}
-                        </div>
+                        </motion.div>
                       ))}
                     </div>
                   </motion.div>
                 ) : (
-                  <div className="flex h-[360px] items-center justify-center">
+                  <div className="flex h-[420px] items-center justify-center">
                     <div className="text-center">
-                      <Terminal className="mx-auto mb-2 h-10 w-10 text-code-comment opacity-40" />
-                      <p className="text-sm text-code-comment">Click "Run Code" to compile and execute</p>
+                      <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-code-line">
+                        <Terminal className="h-8 w-8 text-code-comment/40" />
+                      </div>
+                      <p className="text-sm font-medium text-code-comment">Click "Run Code" to compile and execute</p>
+                      <p className="mt-1 text-xs text-code-comment/60">Output will appear here</p>
                     </div>
                   </div>
                 )}
@@ -172,34 +204,39 @@ const CompilerPage = () => {
 
             {/* Errors/Warnings */}
             {result && result.errors.length > 0 && (
-              <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className="rounded-xl border bg-card p-4 shadow-card">
-                <h3 className="mb-3 flex items-center gap-2 text-sm font-semibold">
-                  <AlertTriangle className="h-4 w-4 text-warning" />
+              <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className="rounded-2xl border bg-card p-5 shadow-card">
+                <h3 className="mb-4 flex items-center gap-2 text-sm font-semibold">
+                  <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-warning/10">
+                    <AlertTriangle className="h-4 w-4 text-warning" />
+                  </div>
                   Issues ({result.errors.length})
                 </h3>
                 <div className="space-y-2">
                   {result.errors.map((err, i) => (
-                    <div
+                    <motion.div
                       key={i}
-                      className={`flex items-start gap-2 rounded-lg border p-2.5 text-sm ${
-                        err.type === "error" ? "border-destructive/30 bg-destructive/5" : "border-warning/30 bg-warning/5"
+                      initial={{ opacity: 0, x: -8 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      transition={{ delay: i * 0.05 }}
+                      className={`flex items-start gap-3 rounded-xl border p-3 text-sm transition-colors ${
+                        err.type === "error" ? "border-destructive/20 bg-destructive/5 hover:bg-destructive/10" : "border-warning/20 bg-warning/5 hover:bg-warning/10"
                       }`}
                     >
                       {err.type === "error" ? (
-                        <XCircle className="mt-0.5 h-3.5 w-3.5 shrink-0 text-destructive" />
+                        <XCircle className="mt-0.5 h-4 w-4 shrink-0 text-destructive" />
                       ) : (
-                        <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0 text-warning" />
+                        <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-warning" />
                       )}
                       <div>
-                        <span className="font-mono text-xs text-muted-foreground">Line {err.line}:</span>{" "}
-                        <span>{err.message}</span>
+                        <span className="font-mono text-xs font-semibold text-muted-foreground">Line {err.line}</span>
+                        <p className="mt-0.5 text-muted-foreground">{err.message}</p>
                       </div>
-                    </div>
+                    </motion.div>
                   ))}
                 </div>
               </motion.div>
             )}
-          </div>
+          </motion.div>
         </div>
       </div>
     </div>
