@@ -490,10 +490,17 @@ const AnalyzerPage = () => {
           )}
         </AnimatePresence>
 
-        {/* AI Chat */}
-        <div className="mt-8">
-          <AIChatPanel context={code} />
-        </div>
+        {/* AI Chat — only shown after analysis */}
+        {results && (
+          <motion.div
+            initial={{ opacity: 0, y: 12 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.3, delay: 0.2 }}
+            className="mt-6"
+          >
+            <AIChatPanel context={code} />
+          </motion.div>
+        )}
       </div>
     </div>
   );
