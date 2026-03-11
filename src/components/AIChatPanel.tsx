@@ -1,6 +1,8 @@
 import { useState, useRef, useEffect } from "react";
-import { Send, Bot, User } from "lucide-react";
+import { Send, Bot, User, Loader2 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
+import ReactMarkdown from "react-markdown";
+import { supabase } from "@/integrations/supabase/client";
 
 interface Message {
   role: "user" | "assistant";
@@ -11,60 +13,142 @@ interface AIChatPanelProps {
   context?: string;
 }
 
+const CHAT_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/chat`;
+
+async function streamChat({
+  messages,
+  onDelta,
+  onDone,
+  onError,
+}: {
+  messages: Message[];
+  onDelta: (text: string) => void;
+  onDone: () => void;
+  onError: (err: string) => void;
+}) {
+  const resp = await fetch(CHAT_URL, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+    },
+    body: JSON.stringify({ messages }),
+  });
+
+  if (!resp.ok) {
+    const body = await resp.json().catch(() => ({ error: "Request failed" }));
+    onError(body.error || `Error ${resp.status}`);
+    return;
+  }
+
+  if (!resp.body) {
+    onError("No response body");
+    return;
+  }
+
+  const reader = resp.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = "";
+
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    buffer += decoder.decode(value, { stream: true });
+
+    let idx: number;
+    while ((idx = buffer.indexOf("\n")) !== -1) {
+      let line = buffer.slice(0, idx);
+      buffer = buffer.slice(idx + 1);
+      if (line.endsWith("\r")) line = line.slice(0, -1);
+      if (!line.startsWith("data: ")) continue;
+      const json = line.slice(6).trim();
+      if (json === "[DONE]") { onDone(); return; }
+      try {
+        const parsed = JSON.parse(json);
+        const content = parsed.choices?.[0]?.delta?.content;
+        if (content) onDelta(content);
+      } catch {
+        buffer = line + "\n" + buffer;
+        break;
+      }
+    }
+  }
+  onDone();
+}
+
 const AIChatPanel = ({ context }: AIChatPanelProps) => {
   const [messages, setMessages] = useState<Message[]>([
     {
       role: "assistant",
-      content: "Hello! I'm your AI code assistant. Paste Java code or ask me anything about programming concepts, complexity analysis, or debugging.",
+      content:
+        "Hello! I'm **CodeSense AI**. Ask me anything about your Java code — I'll explain the logic, analyze complexity, and suggest improvements.",
     },
   ]);
   const [input, setInput] = useState("");
-  const [isTyping, setIsTyping] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" });
-  }, [messages, isTyping]);
+  }, [messages, isLoading]);
 
-  const simulateResponse = (userMsg: string) => {
-    setIsTyping(true);
-    const lower = userMsg.toLowerCase();
+  const handleSend = async () => {
+    if (!input.trim() || isLoading) return;
+    const userContent = context
+      ? `[Code in editor]:\n\`\`\`java\n${context}\n\`\`\`\n\nUser question: ${input.trim()}`
+      : input.trim();
 
-    let response = "I can help with Java code analysis, complexity estimation, and debugging. Could you share some code or ask a specific question?";
-
-    if (lower.includes("complexity") || lower.includes("big o")) {
-      response =
-        "**Complexity Analysis:**\n\nTo determine time complexity, I look at:\n- **Loops**: Single loop → O(n), nested loops → O(n²)\n- **Recursion**: Analyze recurrence relations\n- **Data structures**: HashMap operations are O(1) avg, TreeMap is O(log n)\n\nPaste your code and I'll analyze it in detail!";
-    } else if (lower.includes("sort") || lower.includes("sorting")) {
-      response =
-        "**Sorting Algorithms Comparison:**\n\n| Algorithm | Time (Best) | Time (Worst) | Space |\n|-----------|------------|-------------|-------|\n| Bubble Sort | O(n) | O(n²) | O(1) |\n| Merge Sort | O(n log n) | O(n log n) | O(n) |\n| Quick Sort | O(n log n) | O(n²) | O(log n) |\n\nFor most cases, **Arrays.sort()** in Java uses TimSort (O(n log n)).";
-    } else if (lower.includes("error") || lower.includes("debug") || lower.includes("fix")) {
-      response =
-        "**Common Java Errors:**\n\n1. `NullPointerException` — Check for null before accessing objects\n2. `ArrayIndexOutOfBoundsException` — Verify array bounds\n3. `ClassCastException` — Use `instanceof` before casting\n\nShare the error message and code, and I'll help you debug it!";
-    } else if (context && (lower.includes("explain") || lower.includes("code") || lower.includes("analyze"))) {
-      response = `**Code Analysis:**\n\nI can see you have code in the editor. Here's what I notice:\n\n- The code structure follows standard Java conventions\n- Consider checking for edge cases and null values\n- I'd recommend adding proper exception handling\n\nWould you like me to explain any specific part in detail?`;
-    }
-
-    setTimeout(() => {
-      setMessages((prev) => [...prev, { role: "assistant", content: response }]);
-      setIsTyping(false);
-    }, 1200);
-  };
-
-  const handleSend = () => {
-    if (!input.trim()) return;
-    const userMsg = input.trim();
-    setMessages((prev) => [...prev, { role: "user", content: userMsg }]);
+    const userMsg: Message = { role: "user", content: userContent };
+    const displayMsg: Message = { role: "user", content: input.trim() };
+    setMessages((prev) => [...prev, displayMsg]);
     setInput("");
-    simulateResponse(userMsg);
+    setIsLoading(true);
+
+    let assistantSoFar = "";
+
+    const apiMessages = [
+      ...messages.filter((m) => m.role === "assistant" || m.role === "user"),
+      userMsg,
+    ];
+
+    try {
+      await streamChat({
+        messages: apiMessages,
+        onDelta: (chunk) => {
+          assistantSoFar += chunk;
+          setMessages((prev) => {
+            const last = prev[prev.length - 1];
+            if (last?.role === "assistant" && prev.length > 1 && assistantSoFar.startsWith(chunk) === false) {
+              return prev.map((m, i) => (i === prev.length - 1 ? { ...m, content: assistantSoFar } : m));
+            }
+            if (last?.role === "user") {
+              return [...prev, { role: "assistant", content: assistantSoFar }];
+            }
+            return prev.map((m, i) => (i === prev.length - 1 ? { ...m, content: assistantSoFar } : m));
+          });
+        },
+        onDone: () => setIsLoading(false),
+        onError: (err) => {
+          setMessages((prev) => [...prev, { role: "assistant", content: `⚠️ ${err}` }]);
+          setIsLoading(false);
+        },
+      });
+    } catch {
+      setMessages((prev) => [...prev, { role: "assistant", content: "⚠️ Failed to connect to AI. Please try again." }]);
+      setIsLoading(false);
+    }
   };
 
   return (
-    <div className="flex h-full flex-col rounded-lg border bg-card shadow-card">
+    <div className="flex h-full flex-col rounded-2xl border bg-card shadow-card">
       <div className="flex items-center gap-2 border-b px-4 py-3">
-        <Bot className="h-4 w-4 text-accent" />
-        <span className="text-sm font-semibold">AI Assistant</span>
-        <span className="ml-auto rounded-full bg-success/10 px-2 py-0.5 text-[10px] font-medium text-success">Online</span>
+        <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-accent/10">
+          <Bot className="h-4 w-4 text-accent" />
+        </div>
+        <span className="text-sm font-semibold">CodeSense AI</span>
+        <span className="ml-auto rounded-full bg-success/10 px-2 py-0.5 text-[10px] font-medium text-success">
+          Powered by AI
+        </span>
       </div>
 
       <div ref={scrollRef} className="flex-1 space-y-3 overflow-y-auto p-4" style={{ maxHeight: "400px" }}>
@@ -82,13 +166,15 @@ const AIChatPanel = ({ context }: AIChatPanelProps) => {
                 </div>
               )}
               <div
-                className={`max-w-[85%] rounded-lg px-3 py-2 text-sm leading-relaxed ${
+                className={`max-w-[85%] rounded-xl px-3 py-2 text-sm leading-relaxed ${
                   msg.role === "user"
                     ? "bg-primary text-primary-foreground"
                     : "bg-muted text-foreground"
                 }`}
               >
-                <div className="whitespace-pre-wrap">{msg.content}</div>
+                <div className="prose prose-sm max-w-none dark:prose-invert prose-p:my-1 prose-pre:my-2 prose-ul:my-1 prose-ol:my-1 prose-headings:my-2">
+                  <ReactMarkdown>{msg.content}</ReactMarkdown>
+                </div>
               </div>
               {msg.role === "user" && (
                 <div className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-primary/10">
@@ -99,7 +185,7 @@ const AIChatPanel = ({ context }: AIChatPanelProps) => {
           ))}
         </AnimatePresence>
 
-        {isTyping && (
+        {isLoading && messages[messages.length - 1]?.role !== "assistant" && (
           <div className="flex items-center gap-2">
             <div className="flex h-6 w-6 items-center justify-center rounded-full bg-accent/10">
               <Bot className="h-3.5 w-3.5 text-accent" />
@@ -119,15 +205,16 @@ const AIChatPanel = ({ context }: AIChatPanelProps) => {
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={(e) => e.key === "Enter" && handleSend()}
-            placeholder="Ask about Java code..."
-            className="flex-1 rounded-md border bg-background px-3 py-2 text-sm outline-none transition-colors focus:border-primary"
+            placeholder="Ask about your Java code..."
+            disabled={isLoading}
+            className="flex-1 rounded-xl border bg-background px-3 py-2 text-sm outline-none transition-colors focus:border-primary disabled:opacity-50"
           />
           <button
             onClick={handleSend}
-            disabled={!input.trim()}
-            className="flex h-9 w-9 items-center justify-center rounded-md bg-primary text-primary-foreground transition-colors hover:bg-primary/90 disabled:opacity-50"
+            disabled={!input.trim() || isLoading}
+            className="flex h-9 w-9 items-center justify-center rounded-xl bg-primary text-primary-foreground transition-colors hover:bg-primary/90 disabled:opacity-50"
           >
-            <Send className="h-4 w-4" />
+            {isLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
           </button>
         </div>
       </div>
