@@ -105,7 +105,7 @@ const CompilerPage = () => {
           let val = match[1].trim();
 
           const resolveVariable = (name: string): string => {
-            // Look for variable assignment
+            // Look for variable declaration
             const varMatch = code.match(new RegExp(`(?:int|double|float|long|String|char|boolean)\\s+${name}\\s*=\\s*([^;]+)`));
             if (!varMatch) return name;
             const varVal = varMatch[1].trim();
@@ -113,6 +113,32 @@ const CompilerPage = () => {
             if (varVal.startsWith('"') && varVal.endsWith('"')) return varVal.slice(1, -1);
             // If it's a method call, show a simulated result
             if (varVal.match(/\w+\s*\(/)) return `[result of ${varVal}]`;
+
+            // Check if the variable is modified inside a for-loop (simple accumulation)
+            const forLoopRegex = /for\s*\(\s*int\s+(\w+)\s*=\s*(\d+)\s*;\s*\w+\s*([<>=!]+)\s*(\d+)\s*;\s*(\w+)(\+\+|--)\s*\)\s*\{([^}]*)\}/g;
+            let loopMatch;
+            while ((loopMatch = forLoopRegex.exec(code)) !== null) {
+              const [, loopVar, startStr, comparator, endStr, , increment, body] = loopMatch;
+              const start = parseInt(startStr);
+              const end = parseInt(endStr);
+              // Check if loop body modifies our variable
+              const accum = body.match(new RegExp(`${name}\\s*([+\\-*/])=\\s*(\\w+)`));
+              if (accum) {
+                const op = accum[1];
+                const operand = accum[2];
+                let result = parseInt(varVal) || 0;
+                const isIncrement = increment === '++';
+                const loopEnd = comparator === '<=' ? end : comparator === '<' ? end - 1 : end;
+                for (let i = start; isIncrement ? i <= loopEnd : i >= loopEnd; isIncrement ? i++ : i--) {
+                  const val = operand === loopVar ? i : (parseInt(operand) || 0);
+                  if (op === '+') result += val;
+                  else if (op === '-') result -= val;
+                  else if (op === '*') result *= val;
+                }
+                return String(result);
+              }
+            }
+
             // Try numeric eval
             try { return String(eval(varVal)); } catch { return varVal; }
           };
