@@ -30,6 +30,175 @@ interface CompileResult {
   errors: CompileError[];
 }
 
+const escapeRegExp = (value: string) => value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
+const getVariableExpression = (source: string, name: string) => {
+  const variablePattern = new RegExp(
+    `(?:int|double|float|long|String|char|boolean)\\s+${escapeRegExp(name)}\\s*=\\s*([^;]+)`,
+  );
+  return source.match(variablePattern)?.[1]?.trim() ?? null;
+};
+
+const parseNumericValue = (token: string, source: string): number | null => {
+  const trimmed = token.trim();
+
+  if (/^-?\d+$/.test(trimmed)) {
+    return parseInt(trimmed, 10);
+  }
+
+  const variableExpression = getVariableExpression(source, trimmed);
+  if (variableExpression && /^-?\d+$/.test(variableExpression)) {
+    return parseInt(variableExpression, 10);
+  }
+
+  return null;
+};
+
+const parseNumericArray = (source: string, name: string) => {
+  const arrayPattern = new RegExp(
+    `int\\s*\\[\\]\\s+${escapeRegExp(name)}\\s*=\\s*(?:new\\s+int\\s*\\[\\]\\s*)?\\{([^}]*)\\}`,
+  );
+  const match = source.match(arrayPattern);
+
+  if (!match) {
+    return null;
+  }
+
+  const values = match[1]
+    .split(",")
+    .map((item) => parseInt(item.trim(), 10))
+    .filter((item) => !Number.isNaN(item));
+
+  return values.length ? values : null;
+};
+
+const simulateMethodCall = (source: string, expression: string) => {
+  const callMatch = expression.trim().match(/^(\w+)\s*\((.*)\)$/);
+  if (!callMatch) {
+    return expression;
+  }
+
+  const [, methodName, rawArgs] = callMatch;
+  const args = rawArgs.split(",").map((arg) => arg.trim()).filter(Boolean);
+
+  if (/(binarysearch|search)/i.test(methodName) && args.length >= 2) {
+    const arrayValues = parseNumericArray(source, args[0]);
+    const targetValue = parseNumericValue(args[1], source);
+
+    if (arrayValues && targetValue !== null) {
+      return String(arrayValues.indexOf(targetValue));
+    }
+  }
+
+  return `[result of ${expression}]`;
+};
+
+const resolveVariable = (source: string, name: string): string => {
+  const variableExpression = getVariableExpression(source, name);
+  if (!variableExpression) {
+    return name;
+  }
+
+  if (variableExpression.startsWith('"') && variableExpression.endsWith('"')) {
+    return variableExpression.slice(1, -1);
+  }
+
+  if (/^\w+\s*\(.*\)$/.test(variableExpression)) {
+    return simulateMethodCall(source, variableExpression);
+  }
+
+  const forLoopRegex = /for\s*\(\s*int\s+(\w+)\s*=\s*(\d+)\s*;\s*\w+\s*([<>=!]+)\s*(\d+)\s*;\s*(\w+)(\+\+|--)\s*\)\s*\{([^}]*)\}/g;
+  let loopMatch;
+
+  while ((loopMatch = forLoopRegex.exec(source)) !== null) {
+    const [, loopVar, startStr, comparator, endStr, , increment, body] = loopMatch;
+    const accumulationPattern = new RegExp(`${escapeRegExp(name)}\\s*([+\\-*/])=\\s*(\\w+)`);
+    const accumulationMatch = body.match(accumulationPattern);
+
+    if (!accumulationMatch) {
+      continue;
+    }
+
+    const start = parseInt(startStr, 10);
+    const end = parseInt(endStr, 10);
+    const operator = accumulationMatch[1];
+    const operand = accumulationMatch[2];
+    let result = parseInt(variableExpression, 10) || 0;
+    const isIncrementing = increment === "++";
+    const loopEnd = comparator === "<=" ? end : comparator === "<" ? end - 1 : end;
+
+    for (
+      let i = start;
+      isIncrementing ? i <= loopEnd : i >= loopEnd;
+      isIncrementing ? i++ : i--
+    ) {
+      const operandValue = operand === loopVar ? i : parseInt(operand, 10) || 0;
+
+      if (operator === "+") result += operandValue;
+      else if (operator === "-") result -= operandValue;
+      else if (operator === "*") result *= operandValue;
+    }
+
+    return String(result);
+  }
+
+  try {
+    return String(eval(variableExpression));
+  } catch {
+    return variableExpression;
+  }
+};
+
+const evaluatePrintExpression = (source: string, expression: string) => {
+  const parts: string[] = [];
+  let current = "";
+  let inString = false;
+
+  for (let index = 0; index < expression.length; index++) {
+    const character = expression[index];
+
+    if (character === '"' && (index === 0 || expression[index - 1] !== "\\")) {
+      inString = !inString;
+      current += character;
+    } else if (character === "+" && !inString) {
+      parts.push(current.trim());
+      current = "";
+    } else {
+      current += character;
+    }
+  }
+
+  if (current.trim()) {
+    parts.push(current.trim());
+  }
+
+  return parts
+    .map((part) => {
+      if (part.startsWith('"') && part.endsWith('"')) {
+        return part.slice(1, -1);
+      }
+
+      if (part.startsWith("'") && part.endsWith("'")) {
+        return part.slice(1, -1);
+      }
+
+      if (/^\w+\s*\(.*\)$/.test(part)) {
+        return simulateMethodCall(source, part);
+      }
+
+      if (/^[a-zA-Z_]\w*$/.test(part)) {
+        return resolveVariable(source, part);
+      }
+
+      try {
+        return String(eval(part));
+      } catch {
+        return part;
+      }
+    })
+    .join("");
+};
+
 const CompilerPage = () => {
   const [code, setCode] = useState(defaultCode);
   const [compiling, setCompiling] = useState(false);
@@ -100,83 +269,9 @@ const CompilerPage = () => {
         output.push("");
         output.push("$ java Main");
 
-        const printMatches = code.matchAll(/System\.out\.println\((.*?)\);/g);
+        const printMatches = code.matchAll(/System\.out\.println\(([\s\S]*?)\);/g);
         for (const match of printMatches) {
-          let val = match[1].trim();
-
-          const resolveVariable = (name: string): string => {
-            // Look for variable declaration
-            const varMatch = code.match(new RegExp(`(?:int|double|float|long|String|char|boolean)\\s+${name}\\s*=\\s*([^;]+)`));
-            if (!varMatch) return name;
-            const varVal = varMatch[1].trim();
-            // String literal
-            if (varVal.startsWith('"') && varVal.endsWith('"')) return varVal.slice(1, -1);
-            // If it's a method call, show a simulated result
-            if (varVal.match(/\w+\s*\(/)) return `[result of ${varVal}]`;
-
-            // Check if the variable is modified inside a for-loop (simple accumulation)
-            const forLoopRegex = /for\s*\(\s*int\s+(\w+)\s*=\s*(\d+)\s*;\s*\w+\s*([<>=!]+)\s*(\d+)\s*;\s*(\w+)(\+\+|--)\s*\)\s*\{([^}]*)\}/g;
-            let loopMatch;
-            while ((loopMatch = forLoopRegex.exec(code)) !== null) {
-              const [, loopVar, startStr, comparator, endStr, , increment, body] = loopMatch;
-              const start = parseInt(startStr);
-              const end = parseInt(endStr);
-              // Check if loop body modifies our variable
-              const accum = body.match(new RegExp(`${name}\\s*([+\\-*/])=\\s*(\\w+)`));
-              if (accum) {
-                const op = accum[1];
-                const operand = accum[2];
-                let result = parseInt(varVal) || 0;
-                const isIncrement = increment === '++';
-                const loopEnd = comparator === '<=' ? end : comparator === '<' ? end - 1 : end;
-                for (let i = start; isIncrement ? i <= loopEnd : i >= loopEnd; isIncrement ? i++ : i--) {
-                  const val = operand === loopVar ? i : (parseInt(operand) || 0);
-                  if (op === '+') result += val;
-                  else if (op === '-') result -= val;
-                  else if (op === '*') result *= val;
-                }
-                return String(result);
-              }
-            }
-
-            // Try numeric eval
-            try { return String(eval(varVal)); } catch { return varVal; }
-          };
-
-          const evaluatePrint = (expr: string): string => {
-            // Split by + for concatenation, but be careful with strings containing +
-            const parts: string[] = [];
-            let current = "";
-            let inString = false;
-            for (let c = 0; c < expr.length; c++) {
-              if (expr[c] === '"' && (c === 0 || expr[c-1] !== '\\')) {
-                inString = !inString;
-                current += expr[c];
-              } else if (expr[c] === '+' && !inString) {
-                parts.push(current.trim());
-                current = "";
-              } else {
-                current += expr[c];
-              }
-            }
-            if (current.trim()) parts.push(current.trim());
-
-            return parts.map(part => {
-              if ((part.startsWith('"') && part.endsWith('"'))) {
-                return part.slice(1, -1);
-              }
-              if ((part.startsWith("'") && part.endsWith("'"))) {
-                return part.slice(1, -1);
-              }
-              // Method call directly in println
-              if (part.match(/^\w+\s*\(.*\)$/)) return `[result of ${part}]`;
-              // Variable reference
-              if (part.match(/^[a-zA-Z_]\w*$/)) return resolveVariable(part);
-              // Numeric expression
-              try { return String(eval(part)); } catch { return part; }
-            }).join("");
-          };
-          output.push(evaluatePrint(val));
+          output.push(evaluatePrintExpression(code, match[1].trim()));
         }
 
         output.push("");
