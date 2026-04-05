@@ -100,14 +100,29 @@ const CompilerPage = () => {
         output.push("");
         output.push("$ java Main");
 
-        const printMatches = code.matchAll(/System\.out\.println\((.*?)\)/g);
+        const printMatches = code.matchAll(/System\.out\.println\((.*?)\);/g);
         for (const match of printMatches) {
           let val = match[1].trim();
-          if (val.startsWith('"') && val.endsWith('"')) {
-            output.push(val.slice(1, -1));
-          } else {
-            output.push(`[computed: ${val}]`);
-          }
+          // Evaluate string concatenation expressions
+          const evaluatePrint = (expr: string): string => {
+            // Split by + for concatenation
+            const parts = expr.split("+").map(p => p.trim());
+            return parts.map(part => {
+              if ((part.startsWith('"') && part.endsWith('"')) || (part.startsWith("'") && part.endsWith("'"))) {
+                return part.slice(1, -1);
+              }
+              // Try to find variable assignments and resolve simple values
+              const varMatch = code.match(new RegExp(`(?:int|double|float|long|String|char|boolean)\\s+${part}\\s*=\\s*([^;]+)`));
+              if (varMatch) {
+                const varVal = varMatch[1].trim();
+                if ((varVal.startsWith('"') && varVal.endsWith('"'))) return varVal.slice(1, -1);
+                try { return String(eval(varVal)); } catch { return `${varVal}`; }
+              }
+              // Try direct numeric evaluation
+              try { return String(eval(part)); } catch { return part; }
+            }).join("");
+          };
+          output.push(evaluatePrint(val));
         }
 
         output.push("");
