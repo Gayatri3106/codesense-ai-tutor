@@ -103,22 +103,50 @@ const CompilerPage = () => {
         const printMatches = code.matchAll(/System\.out\.println\((.*?)\);/g);
         for (const match of printMatches) {
           let val = match[1].trim();
-          // Evaluate string concatenation expressions
+
+          const resolveVariable = (name: string): string => {
+            // Look for variable assignment
+            const varMatch = code.match(new RegExp(`(?:int|double|float|long|String|char|boolean)\\s+${name}\\s*=\\s*([^;]+)`));
+            if (!varMatch) return name;
+            const varVal = varMatch[1].trim();
+            // String literal
+            if (varVal.startsWith('"') && varVal.endsWith('"')) return varVal.slice(1, -1);
+            // If it's a method call, show a simulated result
+            if (varVal.match(/\w+\s*\(/)) return `[result of ${varVal}]`;
+            // Try numeric eval
+            try { return String(eval(varVal)); } catch { return varVal; }
+          };
+
           const evaluatePrint = (expr: string): string => {
-            // Split by + for concatenation
-            const parts = expr.split("+").map(p => p.trim());
+            // Split by + for concatenation, but be careful with strings containing +
+            const parts: string[] = [];
+            let current = "";
+            let inString = false;
+            for (let c = 0; c < expr.length; c++) {
+              if (expr[c] === '"' && (c === 0 || expr[c-1] !== '\\')) {
+                inString = !inString;
+                current += expr[c];
+              } else if (expr[c] === '+' && !inString) {
+                parts.push(current.trim());
+                current = "";
+              } else {
+                current += expr[c];
+              }
+            }
+            if (current.trim()) parts.push(current.trim());
+
             return parts.map(part => {
-              if ((part.startsWith('"') && part.endsWith('"')) || (part.startsWith("'") && part.endsWith("'"))) {
+              if ((part.startsWith('"') && part.endsWith('"'))) {
                 return part.slice(1, -1);
               }
-              // Try to find variable assignments and resolve simple values
-              const varMatch = code.match(new RegExp(`(?:int|double|float|long|String|char|boolean)\\s+${part}\\s*=\\s*([^;]+)`));
-              if (varMatch) {
-                const varVal = varMatch[1].trim();
-                if ((varVal.startsWith('"') && varVal.endsWith('"'))) return varVal.slice(1, -1);
-                try { return String(eval(varVal)); } catch { return `${varVal}`; }
+              if ((part.startsWith("'") && part.endsWith("'"))) {
+                return part.slice(1, -1);
               }
-              // Try direct numeric evaluation
+              // Method call directly in println
+              if (part.match(/^\w+\s*\(.*\)$/)) return `[result of ${part}]`;
+              // Variable reference
+              if (part.match(/^[a-zA-Z_]\w*$/)) return resolveVariable(part);
+              // Numeric expression
               try { return String(eval(part)); } catch { return part; }
             }).join("");
           };
